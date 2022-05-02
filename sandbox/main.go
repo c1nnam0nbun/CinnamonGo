@@ -1,16 +1,29 @@
 package main
 
 import (
-	"fmt"
-	"github.com/c1nnam0nbun/cinnamon/core"
+	"github.com/c1nnam0nbun/cinnamon/app"
 	"github.com/c1nnam0nbun/cinnamon/ecs"
 	"github.com/c1nnam0nbun/cinnamon/util"
 )
 
 func main() {
-	core.NewApplication().
-		AddStartupSystem(ecs.NewSystem(setup)).
-		Run()
+	app.NewApplication(app.ApplicationConfig{
+		Systems: ecs.StageSystems{
+			ecs.First: {
+				ecs.NewSystem(testFirstSystemOne),
+				ecs.NewSystem(testFirstSystemTwo),
+			},
+			ecs.Update: {
+				ecs.NewSystem(testUpdateSystem),
+			},
+		},
+		StartupSystems: ecs.Systems{
+			ecs.NewSystem(setup),
+		},
+		Resources: ecs.Resources{
+			ecs.NewResource[ComponentC](nil),
+		},
+	}).Run()
 }
 
 type ComponentA struct {
@@ -32,17 +45,25 @@ func setup(world *ecs.World) {
 	_ = ecs.AddComponent(&entity2, ComponentA{9})
 	_ = ecs.AddComponent(&entity2, ComponentB{})
 	_ = ecs.AddComponent(&entity2, ComponentC{})
-	world.Query(util.TypeOf[ComponentA](), util.TypeOf[ComponentB]()).ForEach(func(result ecs.QueryResult) {
-		entity := ecs.MatchQueryResult[ecs.Entity](result)
-		a := ecs.MatchQueryResult[ComponentA](result)
-		b := ecs.MatchQueryResult[ComponentB](result)
-		fmt.Println(entity, a, b)
+}
+
+func testFirstSystemOne(world *ecs.World) {
+	world.Query(util.TypeOf[ComponentA]()).ForEach(func(result ecs.QueryResult) {
+		a := ecs.MatchQueryResultPtr[ComponentA](result)
 		a.value++
 	})
-	world.Query(util.TypeOf[ComponentA](), util.TypeOf[ComponentB]()).ForEach(func(result ecs.QueryResult) {
-		a := *ecs.MatchQueryResultPtr[ComponentA](result)
-		//a := util.MatchInstancePtrA[ComponentA](components)
-		//b := util.MatchInstancePtrA[ComponentB](components)
-		fmt.Println(a)
+}
+
+func testFirstSystemTwo(world *ecs.World) {
+	world.Query(util.TypeOf[ComponentA]()).ForEach(func(result ecs.QueryResult) {
+		a := ecs.MatchQueryResultPtr[ComponentA](result)
+		a.value--
+	})
+}
+
+func testUpdateSystem(world *ecs.World) {
+	world.Query(util.TypeOf[ComponentA]()).ForEach(func(result ecs.QueryResult) {
+		a := ecs.MatchQueryResult[ComponentA](result)
+		println(a.value)
 	})
 }

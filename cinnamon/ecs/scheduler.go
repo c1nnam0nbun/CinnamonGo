@@ -22,12 +22,14 @@ type scheduler struct {
 	stageOrder      []Stage
 	startupSystems  []System
 	shutdownSystems []System
+	worldChannel    chan *World
 }
 
 func NewScheduler(world *World) Scheduler {
 	return &scheduler{
-		world:      world,
-		stageOrder: []Stage{First, PreUpdate, Update, PostUpdate, Last},
+		world:        world,
+		worldChannel: make(chan *World),
+		stageOrder:   []Stage{First, PreUpdate, Update, PostUpdate, Last},
 		stages: map[Stage][]System{
 			First:      make([]System, 0),
 			PreUpdate:  make([]System, 0),
@@ -47,6 +49,7 @@ type Scheduler interface {
 	AddSystem(system System)
 	AddSystemToStage(stage Stage, system System)
 	Run()
+	Shutdown()
 }
 
 func (s *scheduler) AddStage(stage Stage) {
@@ -93,23 +96,33 @@ func (s *scheduler) AddSystemToStage(stage Stage, system System) {
 	s.stages[stage] = append(s.stages[stage], system)
 }
 
+func (s *scheduler) Shutdown() {
+	s.runSystems(s.shutdownSystems)
+}
+
 func (s *scheduler) Run() {
 	if len(s.startupSystems) != 0 {
-		for _, system := range s.startupSystems {
-			system.call(s.world)
-		}
-		s.startupSystems = make([]System, 0)
+		s.startup()
 	}
 	for _, stage := range s.stageOrder {
-		println(stage)
-		var wg sync.WaitGroup
-		for _, system := range s.stages[stage] {
-			go func() {
-				system.call(s.world)
-				wg.Done()
-			}()
-			wg.Add(1)
-		}
-		wg.Wait()
+		s.runSystems(s.stages[stage])
 	}
+}
+
+func (s *scheduler) startup() {
+	s.runSystems(s.startupSystems)
+	s.startupSystems = nil
+}
+
+func (s *scheduler) runSystems(systems []System) {
+	var wg sync.WaitGroup
+	for _, system := range systems {
+		go func(fn System) {
+			fn.call(<-s.worldChannel)
+			wg.Done()
+		}(system)
+		wg.Add(1)
+		s.worldChannel <- s.world
+	}
+	wg.Wait()
 }

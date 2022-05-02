@@ -39,7 +39,7 @@ func AddComponent[T any](e *Entity, component T) error {
 		return fmt.Errorf("entity already contains component '%s'", t.Name())
 	}
 	components := append(archetype.components(), componentDescriptor{id, t, size})
-	var newArch Archetype = nil
+	var newArch Archetype
 	for _, arch := range e.world.archetypes {
 		if arch.containsOnly(components) {
 			newArch = arch
@@ -48,14 +48,14 @@ func AddComponent[T any](e *Entity, component T) error {
 	if newArch == nil {
 		newArch = e.world.initArchetype(components...)
 	}
-	e.archetypeId = newArch.getID()
+	e.archetypeId = newArch.hash()
 	newArch.cloneRow(archetype, e.id)
 	if size > 0 {
 		newArch.getColumn(id).data.Set(slices.Index(newArch.getEntities(), e.id), unsafe.Pointer(&component))
 	}
 	archetype.removeRow(e.id)
 	if archetype.len() == 0 {
-		delete(e.world.archetypes, archetype.getID())
+		delete(e.world.archetypes, archetype.hash())
 	}
 	return nil
 }

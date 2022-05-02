@@ -1,9 +1,7 @@
 package ecs
 
 import (
-	"encoding/binary"
-	"github.com/c1nnqm0nbun/cinnamon/ecs/internal/storage"
-	"github.com/cnf/structhash"
+	"github.com/c1nnam0nbun/cinnamon/ecs/internal/storage"
 	"github.com/viant/xunsafe"
 	"golang.org/x/exp/slices"
 	"reflect"
@@ -17,10 +15,7 @@ type column struct {
 type archetype struct {
 	columns  storage.SparseSet[componentId, column]
 	entities []int32
-	id       int32
 }
-
-var version = -1
 
 type Archetype interface {
 	addRow(int32)
@@ -33,9 +28,9 @@ type Archetype interface {
 	getColumn(componentId) *column
 	removeRow(int32)
 	len() int
-	getID() int32
 	containsAll(types []reflect.Type) bool
 	getEntities() []int32
+	hash() int32
 }
 
 func newArchetype() Archetype {
@@ -43,8 +38,6 @@ func newArchetype() Archetype {
 		columns:  storage.SparseSet[componentId, column]{},
 		entities: make([]int32, 0, 0),
 	}
-	arch.id = arch.hash(version)
-	version++
 	return arch
 }
 
@@ -52,17 +45,22 @@ func (a *archetype) len() int {
 	return len(a.entities)
 }
 
-func (a *archetype) getID() int32 {
-	return a.id
-}
-
 func (a *archetype) getEntities() []int32 {
 	return a.entities
 }
 
-func (a *archetype) hash(version int) int32 {
-	s, _ := structhash.Hash(a, version)
-	return int32(binary.BigEndian.Uint32([]byte(s)))
+func (a *archetype) hash() int32 {
+	var hash int32 = 0
+	for _, desc := range a.components() {
+		name := desc.t.Name()
+		var nameHash int32 = 0
+		nameLen := len(name)
+		for _, c := range name {
+			nameHash += c*31 ^ int32(nameLen-1)
+		}
+		hash ^= nameHash
+	}
+	return hash
 }
 
 func (a *archetype) contains(id componentId) bool {

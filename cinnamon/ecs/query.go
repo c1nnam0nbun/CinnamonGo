@@ -1,6 +1,7 @@
 package ecs
 
 import (
+	"fmt"
 	"github.com/c1nnam0nbun/cinnamon/util"
 	"github.com/viant/xunsafe"
 	"reflect"
@@ -31,7 +32,7 @@ func (q *queryResult) set(key reflect.Type, value any) {
 func MatchQueryResult[T any](result QueryResult) T {
 	t := util.TypeOf[T]()
 	if v, ok := result.get(t); !ok {
-		panic("")
+		panic(fmt.Errorf("query result does not contain component of type '%s'", t.Name()))
 	} else {
 		if ptr, ok := v.(unsafe.Pointer); ok {
 			return *(*T)(ptr)
@@ -40,13 +41,13 @@ func MatchQueryResult[T any](result QueryResult) T {
 			return v
 		}
 	}
-	panic("")
+	panic(fmt.Errorf("could not represent query result item as '%s'", t.Name()))
 }
 
 func MatchQueryResultPtr[T any](result QueryResult) *T {
 	t := util.TypeOf[T]()
 	if v, ok := result.get(t); !ok {
-		panic("")
+		panic(fmt.Errorf("query result does not contain component of type '%s'", t.Name()))
 	} else {
 		if ptr, ok := v.(unsafe.Pointer); ok {
 			return (*T)(ptr)
@@ -55,7 +56,7 @@ func MatchQueryResultPtr[T any](result QueryResult) *T {
 			return &v
 		}
 	}
-	panic("")
+	panic(fmt.Errorf("could not represent query result item as '*%s'", t.Name()))
 }
 
 func (q *query) ForEach(fn func(components QueryResult)) {
@@ -78,7 +79,7 @@ func (q *query) execute() []queryResult {
 						result = append(result, make(queryResult, 0))
 						result[i+idx][util.TypeOf[Entity]()] = Entity{
 							id:          e,
-							archetypeId: arch.getID(),
+							archetypeId: arch.hash(),
 							world:       q.world,
 						}
 					}

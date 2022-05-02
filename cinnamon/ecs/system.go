@@ -16,6 +16,9 @@ type System interface {
 	call(world *World)
 }
 
+type Systems []System
+type StageSystems map[Stage][]System
+
 func NewSystem(fn systemFn) System {
 	return &system{
 		system: fn,
